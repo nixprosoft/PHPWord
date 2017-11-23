@@ -10,8 +10,8 @@
  * file that was distributed with this source code. For the full list of
  * contributors, visit https://github.com/PHPOffice/PHPWord/contributors.
  *
- * @see         https://github.com/PHPOffice/PHPWord
- * @copyright   2010-2017 PHPWord contributors
+ * @link        https://github.com/PHPOffice/PHPWord
+ * @copyright   2010-2016 PHPWord contributors
  * @license     http://www.gnu.org/licenses/lgpl.txt LGPL version 3
  */
 
@@ -37,35 +37,35 @@ class TemplateProcessor
     protected $zipClass;
 
     /**
-     * @var string Temporary document filename (with path)
+     * @var string Temporary document filename (with path).
      */
     protected $tempDocumentFilename;
 
     /**
-     * Content of main document part (in XML format) of the temporary document
+     * Content of main document part (in XML format) of the temporary document.
      *
      * @var string
      */
     protected $tempDocumentMainPart;
 
     /**
-     * Content of headers (in XML format) of the temporary document
+     * Content of headers (in XML format) of the temporary document.
      *
      * @var string[]
      */
     protected $tempDocumentHeaders = array();
 
     /**
-     * Content of footers (in XML format) of the temporary document
+     * Content of footers (in XML format) of the temporary document.
      *
      * @var string[]
      */
     protected $tempDocumentFooters = array();
 
     /**
-     * @since 0.12.0 Throws CreateTemporaryFileException and CopyFileException instead of Exception
+     * @since 0.12.0 Throws CreateTemporaryFileException and CopyFileException instead of Exception.
      *
-     * @param string $documentTemplate The fully qualified template filename
+     * @param string $documentTemplate The fully qualified template filename.
      *
      * @throws \PhpOffice\PhpWord\Exception\CreateTemporaryFileException
      * @throws \PhpOffice\PhpWord\Exception\CopyFileException
@@ -107,9 +107,9 @@ class TemplateProcessor
      * @param string $xml
      * @param \XSLTProcessor $xsltProcessor
      *
-     * @throws \PhpOffice\PhpWord\Exception\Exception
-     *
      * @return string
+     *
+     * @throws \PhpOffice\PhpWord\Exception\Exception
      */
     protected function transformSingleXml($xml, $xsltProcessor)
     {
@@ -154,6 +154,8 @@ class TemplateProcessor
      * @param \DOMDocument $xslDomDocument
      * @param array $xslOptions
      * @param string $xslOptionsUri
+     *
+     * @return void
      *
      * @throws \PhpOffice\PhpWord\Exception\Exception
      */
@@ -202,7 +204,9 @@ class TemplateProcessor
     /**
      * @param mixed $search
      * @param mixed $replace
-     * @param int $limit
+     * @param integer $limit
+     *
+     * @return void
      */
     public function setValue($search, $replace, $limit = self::MAXIMUM_REPLACEMENTS_DEFAULT)
     {
@@ -256,7 +260,9 @@ class TemplateProcessor
      * Clone a table row in a template document.
      *
      * @param string $search
-     * @param int $numberOfClones
+     * @param integer $numberOfClones
+     *
+     * @return void
      *
      * @throws \PhpOffice\PhpWord\Exception\Exception
      */
@@ -268,7 +274,7 @@ class TemplateProcessor
 
         $tagPos = strpos($this->tempDocumentMainPart, $search);
         if (!$tagPos) {
-            throw new Exception('Can not clone row, template variable not found or variable contains markup.');
+            throw new Exception("Can not clone row, template variable not found or variable contains markup.");
         }
 
         $rowStart = $this->findRowStart($tagPos);
@@ -313,8 +319,8 @@ class TemplateProcessor
      * Clone a block.
      *
      * @param string $blockname
-     * @param int $clones
-     * @param bool $replace
+     * @param integer $clones
+     * @param boolean $replace
      *
      * @return string|null
      */
@@ -322,13 +328,13 @@ class TemplateProcessor
     {
         $xmlBlock = null;
         preg_match(
-            '/(<\?xml.*)(<w:p.*>\${' . $blockname . '}<\/w:.*?p>)(.*)(<w:p.*\${\/' . $blockname . '}<\/w:.*?p>)/is',
+            '/(<w:p .*>\${' . $blockname . '}<\/w:.*?p>)(.*)(<w:p .*\${\/' . $blockname . '}<\/w:.*?p>)/is',
             $this->tempDocumentMainPart,
             $matches
         );
 
-        if (isset($matches[3])) {
-            $xmlBlock = $matches[3];
+        if (isset($matches[2])) {
+            $xmlBlock = $matches[2];
             $cloned = array();
             for ($i = 1; $i <= $clones; $i++) {
                 $cloned[] = $xmlBlock;
@@ -336,7 +342,7 @@ class TemplateProcessor
 
             if ($replace) {
                 $this->tempDocumentMainPart = str_replace(
-                    $matches[2] . $matches[3] . $matches[4],
+                    $matches[1] . $matches[2] . $matches[3],
                     implode('', $cloned),
                     $this->tempDocumentMainPart
                 );
@@ -347,32 +353,83 @@ class TemplateProcessor
     }
 
     /**
-     * Replace a block.
-     *
-     * @param string $blockname
-     * @param string $replacement
+     * Get all document W:P content for pasting to another document
+     * @return string 
      */
-    public function replaceBlock($blockname, $replacement)
+    public function getAllContent()
     {
+
         preg_match(
-            '/(<\?xml.*)(<w:p.*>\${' . $blockname . '}<\/w:.*?p>)(.*)(<w:p.*\${\/' . $blockname . '}<\/w:.*?p>)/is',
+            '/<w:p.*>(.*)<\/w:p>/is',
             $this->tempDocumentMainPart,
             $matches
         );
 
-        if (isset($matches[3])) {
-            $this->tempDocumentMainPart = str_replace(
-                $matches[2] . $matches[3] . $matches[4],
-                $replacement,
-                $this->tempDocumentMainPart
-            );
+        if (isset($matches[0])) {
+            return $matches[0];
         }
+
+        return '';
+    }
+
+    /**
+     * Replace a one block. Works with big files
+     *
+     * @param string $blockname
+     * @param string $replacement
+     *
+     * @return void
+     */
+    public function replaceBlock($blockname, $replacement)
+    {
+        // берем всю строку
+        $data = $this->tempDocumentMainPart;
+
+        // ищем начало
+        preg_match(
+            '/(<w:p .*>\${' . $blockname . '}<\/w:.*?p>)/is',
+            $data,
+            $start,
+            PREG_OFFSET_CAPTURE
+        );
+
+        if(empty($start)) return;   // блок не найден
+
+        $header = substr($this->tempDocumentMainPart, 0, $start[0][1]);
+
+
+        // ищем конец
+        preg_match(
+            '/(<w:p .*\${\/' . $blockname . '}<\/w:.*?p>)/is',
+            $data,
+            $end,
+            PREG_OFFSET_CAPTURE,
+            $start[0][1]
+        );
+
+        // обрезаем все что после конца
+        $data = substr($data, $start[0][1], strlen($end[0][0]));
+
+        $footer = substr($this->tempDocumentMainPart, $start[0][1] + strlen($end[0][0]));
+
+        preg_match(
+            '/(<w:p .*>\${' . $blockname . '}<\/w:.*?p>)(.*)(<w:p .*\${\/' . $blockname . '}<\/w:.*?p>)/is',
+            $data,
+            $matches
+        );
+
+        if (isset($matches[2])) {
+            $this->tempDocumentMainPart = $header . $matches[1] . $replacement . $footer;
+        }
+
     }
 
     /**
      * Delete a block of text.
      *
      * @param string $blockname
+     *
+     * @return void
      */
     public function deleteBlock($blockname)
     {
@@ -382,9 +439,9 @@ class TemplateProcessor
     /**
      * Saves the result document.
      *
-     * @throws \PhpOffice\PhpWord\Exception\Exception
-     *
      * @return string
+     *
+     * @throws \PhpOffice\PhpWord\Exception\Exception
      */
     public function save()
     {
@@ -412,6 +469,8 @@ class TemplateProcessor
      * @since 0.8.0
      *
      * @param string $fileName
+     *
+     * @return void
      */
     public function saveAs($fileName)
     {
@@ -435,7 +494,7 @@ class TemplateProcessor
      * Finds parts of broken macros and sticks them together.
      * Macros, while being edited, could be implicitly broken by some of the word processors.
      *
-     * @param string $documentPart The document part in XML representation
+     * @param string $documentPart The document part in XML representation.
      *
      * @return string
      */
@@ -460,7 +519,7 @@ class TemplateProcessor
      * @param mixed $search
      * @param mixed $replace
      * @param string $documentPartXML
-     * @param int $limit
+     * @param integer $limit
      *
      * @return string
      */
@@ -469,10 +528,10 @@ class TemplateProcessor
         // Note: we can't use the same function for both cases here, because of performance considerations.
         if (self::MAXIMUM_REPLACEMENTS_DEFAULT === $limit) {
             return str_replace($search, $replace, $documentPartXML);
+        } else {
+            $regExpEscaper = new RegExp();
+            return preg_replace($regExpEscaper->escape($search), $replace, $documentPartXML, $limit);
         }
-        $regExpEscaper = new RegExp();
-
-        return preg_replace($regExpEscaper->escape($search), $replace, $documentPartXML, $limit);
     }
 
     /**
@@ -492,7 +551,7 @@ class TemplateProcessor
     /**
      * Get the name of the header file for $index.
      *
-     * @param int $index
+     * @param integer $index
      *
      * @return string
      */
@@ -512,7 +571,7 @@ class TemplateProcessor
     /**
      * Get the name of the footer file for $index.
      *
-     * @param int $index
+     * @param integer $index
      *
      * @return string
      */
@@ -524,11 +583,11 @@ class TemplateProcessor
     /**
      * Find the start position of the nearest table row before $offset.
      *
-     * @param int $offset
+     * @param integer $offset
+     *
+     * @return integer
      *
      * @throws \PhpOffice\PhpWord\Exception\Exception
-     *
-     * @return int
      */
     protected function findRowStart($offset)
     {
@@ -547,9 +606,9 @@ class TemplateProcessor
     /**
      * Find the end position of the nearest table row after $offset.
      *
-     * @param int $offset
+     * @param integer $offset
      *
-     * @return int
+     * @return integer
      */
     protected function findRowEnd($offset)
     {
@@ -559,8 +618,8 @@ class TemplateProcessor
     /**
      * Get a slice of a string.
      *
-     * @param int $startPosition
-     * @param int $endPosition
+     * @param integer $startPosition
+     * @param integer $endPosition
      *
      * @return string
      */
